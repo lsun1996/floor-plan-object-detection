@@ -1,0 +1,7 @@
+*.txt
+/demo
+/__pycache__
+*.pyc
+.DS_Store
+*.pt
+/model
