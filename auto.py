@@ -45,8 +45,8 @@ def main():
     """
     Main function for auto annotation.
     """
-    input_dir = "/Users/lesun/BSL-floorplan-analysis/data/TrainingData_added/images"
-    output_dir = "/Users/lesun/BSL-floorplan-analysis/data/TrainingData_added/labels"
+    input_dir = "/Users/lesun/BSL-floorplan-analysis/data/newData/images"
+    output_dir = "/Users/lesun/BSL-floorplan-analysis/data/newData/labels"
 
     if not input_dir or not os.path.exists(input_dir):
         print("Invalid directory path. Please provide a valid path.")
@@ -76,7 +76,7 @@ def main():
             continue
         
         # Annotate the image and get the bounding boxes
-        boxes, img_width, img_height = annotate_image(image_path, model, confidence=0.4)
+        boxes, img_width, img_height = annotate_image(image_path, model, confidence=0.25)
         if not boxes:
             tqdm.write(f"No objects detected in {image_name}. Skipping.")
             continue
