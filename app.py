@@ -14,87 +14,17 @@ import numpy as np
 from PIL import Image
 import os
 from tqdm import tqdm
+import pytesseract
+import re
 
-def split_image(image, tile_size=(1920, 1920)):
-    """
-    Split image into tiles and return them as PIL Image objects in memory.
-    
-    Args:
-        image: PIL Image object or file-like object
-        tile_size: tuple of (width, height) for each tile
-    
-    Returns:
-        tuple: (num_tiles_x, num_tiles_y, tiles_list)
-        tiles_list: list of dictionaries with 'image', 'x', 'y' keys
-    """
 
-    Image.MAX_IMAGE_PIXELS = None
-    # base_name = os.path.basename(image_path).split('.')[0]
-
-    try:
-        image_width, image_height = image.size
-        tile_width, tile_height = tile_size
-
-        num_tiles_x = image_width // tile_width
-        num_tiles_y = image_height // tile_height
-
-        if image_width % tile_width != 0:
-            num_tiles_x += 1
-        if image_height % tile_height != 0:
-            num_tiles_y += 1
-
-        tiles = []
-        for x in range(num_tiles_x):
-            for y in range(num_tiles_y):
-                left = x * tile_width
-                top = y * tile_height
-                right = min(left + tile_width, image_width)
-                bottom = min(top + tile_height, image_height)
-
-                # crop and save image tile
-                tile = image.crop((left, top, right, bottom))
-                tiles.append({
-                    'image': tile,
-                    'x': left,
-                    'y': top,
-                    'position': (left, top, right, bottom)
-                })
-    except Exception as e:
-        print(f"Error tiling image: {e}")
-        return 0, 0, []
-
-    return num_tiles_x, num_tiles_y, tiles
-
-def combine_image_tiles(tiles, image_width, image_height):
-    """
-    Combine image tiles into a single image.
-    
-    Args:
-        tiles: list of dictionaries with 'image', 'x', 'y' keys
-        image_width: width of the final combined image
-        image_height: height of the final combined image
-    
-    Returns:
-        PIL Image object of the combined image
-    """
-    combined_image = Image.new('RGB', (image_width, image_height))
-
-    for tile in tiles:
-        x, y = tile['x'], tile['y']
-        tile_image = tile['image']
-        box = (x, y, x + tile_image.width, y + tile_image.height)
-
-        # Ensure the box does not go out of bounds
-        box = (
-            max(0, box[0]),  # Ensure x is not negative
-            max(0, box[1]),  # Ensure y is not negative
-            min(image_width, box[2]),  # Ensure x + width is not beyond image
-            min(image_height, box[3])  # Ensure y + height is not beyond image
-        )
-
-        combined_image.paste(tile_image, box)
-
-    return combined_image
+def clean_ocr_text(text: str) -> str:
+    """Clean OCR text to keep only alphanumeric characters and spaces."""
+    # Remove any non-alphanumeric characters except spaces
+    cleaned = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    # Remove extra whitespace
+    cleaned = ' '.join(cleaned.split())
+    return cleaned
 
 def main():
     """
@@ -102,7 +32,7 @@ def main():
     """
     setting.configure_page()
     
-    model = YOLO("/Users/lesun/floor-plan-object-detection/models/20250708_1920/best.pt")
+    model = YOLO("/Users/lesun/floor-plan-object-detection/models/20250709_1920/best.pt")
 
     # Creating sidebar
     with st.sidebar:
@@ -141,15 +71,25 @@ def main():
             st.warning("Please upload an image before detecting objects.")
         else:
             # split image in col2 into tiles of 1920x1920
-            num_tiles_x, num_tiles_y, tiles = split_image(source_img, tile_size=(1920, 1920))
+            tiles = helper.split_image(source_img, tile_size=(1920, 1920))
 
             # run detection on each tile
             labeled_tiles = []
-            all_filtered_boxes = []
+            tiled_labels = []
+
+            all_filtered_boxes = [] # variable for counting detected objects
 
             for tile in tiles:
                 res = model.predict(tile['image'], conf=confidence, imgsz=1920)
                 filtered_boxes = [box for box in res[0].boxes if model.names[int(box.cls)] in selected_labels]
+                # crops = helper.crop_detected_objects(tile['image'], filtered_boxes)
+
+                # for crop in crops:
+                #     label_name = model.names[int(crop['label'])]
+                #     ocr_text = pytesseract.image_to_string(crop['crop'])
+                #     cleaned_text = clean_ocr_text(ocr_text)
+                #     if cleaned_text:
+                #         st.write(f"Detected {label_name}: {cleaned_text}")
                 res[0].boxes = filtered_boxes
                 res_plotted = helper.draw_custom_labels(tile['image'], filtered_boxes, model)
 
@@ -161,12 +101,20 @@ def main():
                     'image': res_plotted,
                     'x': tile['x'],
                     'y': tile['y'],
-                    'position': tile['position']
+                })
+
+                tiled_labels.append({
+                    'boxes': filtered_boxes,
+                    'x': tile['x'],
+                    'y': tile['y'],
                 })
                 all_filtered_boxes.extend(filtered_boxes)
 
             # combine all labeled tiles into a single image
-            combined_image = combine_image_tiles(labeled_tiles, source_img.width, source_img.height)
+            combined_image = helper.combine_image_tiles(labeled_tiles, source_img.width, source_img.height)
+            # combine all labels into a single array
+            combined_labels = helper.combine_labels(tiled_labels, source_img.width, source_img.height)
+
             with col2:
                 st.image(combined_image, caption='Detected Image',use_column_width=True)
                 # Count detected objects and display counts
@@ -175,8 +123,9 @@ def main():
                 for label, count in object_counts.items():
                     st.write(f"{label}: {count}")
 
-            # todo: download the image tiles and labels for tiles, not the combined ones
-            yolo_file = helper.download_yolo_labels(source_img_name, all_filtered_boxes)
+            # combine all detected boxes into a single list
+
+            yolo_file = helper.download_yolo_labels(source_img_name, combined_labels)
             st.download_button(
                 label="Download YOLO Labels",
                 data=yolo_file,

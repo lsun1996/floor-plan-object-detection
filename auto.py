@@ -8,6 +8,7 @@ torch.load = patched_torch_load
 from ultralytics import YOLO
 import PIL
 from tqdm import tqdm
+import helper
 
 def download_yolo_labels(filename, boxes, img_width, img_height):
     """
@@ -16,18 +17,11 @@ def download_yolo_labels(filename, boxes, img_width, img_height):
     """
     yolo_labels = []
     for box in boxes:
-        class_id = int(box.cls)
-        x_center = (box.xyxy[0][0] + box.xyxy[0][2]) / 2
-        y_center = (box.xyxy[0][1] + box.xyxy[0][3]) / 2
-        width = box.xyxy[0][2] - box.xyxy[0][0]
-        height = box.xyxy[0][3] - box.xyxy[0][1]
-
-        # Normalize coordinates
-        x_center /= img_width
-        y_center /= img_height
-        width /= img_width
-        height /= img_height
-
+        class_id, (x0, y0, x1, y1) = box
+        x_center = (x0 + x1) / 2
+        y_center = (y0 + y1) / 2
+        width = x1 - x0
+        height = y1 - y0
         yolo_labels.append(f"{class_id} {x_center} {y_center} {width} {height}")
     yolo_file = "\n".join(yolo_labels)
     return yolo_file
@@ -37,8 +31,22 @@ def annotate_image(image_path, model, confidence=0.4):
         raise FileNotFoundError(f"Image file {image_path} does not exist.")
     uploaded_image = PIL.Image.open(image_path)
     img_width, img_height = uploaded_image.size
-    res = model.predict(uploaded_image, conf=confidence, imgsz=1920)
-    boxes = res[0].boxes
+    tiles = helper.split_image(uploaded_image, tile_size=(1920, 1920))
+    
+    # labeled_tiles = []
+    tiled_labels = []
+    for tile in tiles:
+        res = model.predict(tile['image'], conf=confidence, imgsz=1920)
+        boxes = res[0].boxes
+        # labeled_tiles.extend(boxes)
+        tiled_labels.append({
+            'boxes': boxes,
+            'x': tile['x'],
+            'y': tile['y'],
+        })
+    # Combine all labels into a single array
+    boxes = helper.combine_labels(tiled_labels, img_width, img_height)
+
     return boxes, img_width, img_height
 
 def main():
@@ -58,7 +66,7 @@ def main():
     image_files = [f for f in os.listdir(input_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
 
     # Load the pretrained model
-    model = YOLO("/Users/lesun/floor-plan-object-detection/models/20250625_1920/best.pt")
+    model = YOLO("/Users/lesun/floor-plan-object-detection/models/20250709_1920/best.pt")
 
     for image_name in tqdm(image_files, desc="Annotating images"):
         # name the output file based on the input image name
