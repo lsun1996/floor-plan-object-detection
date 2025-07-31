@@ -2,6 +2,7 @@ from PIL import Image
 import pandas as pd
 import numpy as np
 import cv2
+from io import BytesIO
 
 def split_image(image, tile_size=(1920, 1920)):
     """
@@ -210,3 +211,12 @@ def crop_detected_objects(image, boxes, padding_percent=0.25):
         })
     
     return crops
+
+def convert_image_to_bytes(image):
+    """
+    Convert a PIL Image to bytes.
+    """
+    img_byte_arr = BytesIO()
+    image.save(img_byte_arr, format='PNG')
+    img_byte_arr.seek(0)
+    return img_byte_arr.getvalue()
