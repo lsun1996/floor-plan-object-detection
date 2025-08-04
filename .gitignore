@@ -3,6 +3,10 @@
 /__pycache__
 *.pyc
 .DS_Store
-*.pt
+# *.pt
 /models
 /.devcontainer
+/DoorWindowTakeOffApp
+*.zip
+/.devcontainer
+devcontainer.json

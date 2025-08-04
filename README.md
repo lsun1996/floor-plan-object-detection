@@ -4,7 +4,7 @@
 
 This project aims to develop an object detection system for architectural floor plans using the YOLOv8 model. The system was trained to detect various elements commonly found in floor plans, such as columns, walls, doors, windows, etc. Given an input image of a floor plan, the system will accurately identify and label these elements.
 
-![Streamlit App Demo](WebUI.gif)
+![Streamlit App Demo]
 
 ## Dataset
 

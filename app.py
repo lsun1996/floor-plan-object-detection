@@ -14,7 +14,6 @@ import numpy as np
 from PIL import Image
 import os
 from tqdm import tqdm
-import pytesseract
 import re
 import fitz
 import io
@@ -135,7 +134,8 @@ def main():
     """
     setting.configure_page()
     
-    model = YOLO("/Users/lesun/floor-plan-object-detection/models/20250709_1920/best.pt")
+    model_path = "best.pt"
+    model = YOLO(model_path)
 
     # Creating sidebar
     with st.sidebar:
