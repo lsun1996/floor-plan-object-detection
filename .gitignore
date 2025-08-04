@@ -1,4 +1,4 @@
-*.txt
+# *.txt
 /demo
 /__pycache__
 *.pyc
