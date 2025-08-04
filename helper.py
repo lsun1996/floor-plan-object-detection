@@ -1,5 +1,4 @@
 from PIL import Image
-import pandas as pd
 import numpy as np
 import cv2
 from io import BytesIO
@@ -117,14 +116,6 @@ def count_detected_objects(model, filtered_boxes):
         # Update count in dictionary
         object_counts[label] = object_counts.get(label, 0) + 1
     return object_counts
-
-def generate_csv(object_counts):
-    """
-    Generate CSV data from detected object counts.
-    """
-    csv_data = pd.DataFrame(list(object_counts.items()), columns=['Label', 'Count'])
-    csv_file = csv_data.to_csv(index=False)
-    return csv_file
 
 def download_yolo_labels(filename, boxes):
     """
